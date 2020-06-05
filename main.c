@@ -20,7 +20,7 @@ int main(int ac, char **av)
 	 * For system initialization the function is passed,
 	 * which destroys elements with respect to their type. The function's prototype
 	 * is supposed to be like "int ext_delete_func(int type, void *struc)" and
-	 * return 0 if it succeeded and 1 if it failed. Second argument is a pointer to
+	 * return 0 if it succeeded and 1 if it failed. Second argument is a
 	 * function that checks uniqueness of the element. It must return 0 if elements
 	 * are identical and any other integer if they are not. It should be prototyped
 	 * like "int ext_uniq_func(int type, void *struc1, void *struc2)". System_init
@@ -49,7 +49,7 @@ int main(int ac, char **av)
 
 	/*
 	 * To perform an action to all elements of the same type there should be passed
-	 * type value and pointer to function, that will be applied to elements.
+	 * type value and function, that will be applied to elements.
 	 * iterate_elements function does not return any value.
 	 */
 	iterate_elements(struc->type, &ext_iter_func);
