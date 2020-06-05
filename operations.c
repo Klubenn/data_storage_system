@@ -24,19 +24,21 @@ static t_type *new_type(int data_type)
 	return (type);
 }
 
-static int create_system(t_system *system, int (*ext_delete_func)(int, void *),
+static t_system *create_system(t_system *system, int (*ext_delete_func)(int, void *),
 						 int (*ext_uniq_func)(int, void *, void *))
 {
+	t_system *new_system;
+
 	if (!system)
 	{
-		system = (t_system *)calloc(1, sizeof(t_system));
-		if (!system)
-			return (FAIL);
-		system->ext_delete_func = ext_delete_func;
-		system->ext_uniq_func = ext_uniq_func;
-		return (SUCCESS);
+		new_system = (t_system *)calloc(1, sizeof(t_system));
+		if (!new_system)
+			return (NULL);
+		new_system->ext_delete_func = ext_delete_func;
+		new_system->ext_uniq_func = ext_uniq_func;
+		return (new_system);
 	}
-	return (FAIL);
+	return (NULL);
 }
 
 static int destroy_system(t_system *system)
@@ -67,6 +69,7 @@ static int destroy_system(t_system *system)
 		type = type_tmp;
 	}
 	free(system);
+	system = NULL;
 	return (flag);
 }
 
@@ -235,11 +238,21 @@ static int record_maintaining(void *data, int data_type, int action,
 		void (*ext_iter_func)(void *))
 {
 	static t_system *system = NULL;
+	int 	flag;
 
 	if (action == INIT_SYS)
-		return (create_system(system, ext_delete_func, ext_uniq_func));
+	{
+		system = create_system(system, ext_delete_func, ext_uniq_func);
+		if (!system)
+			return (FAIL);
+		return (SUCCESS);
+	}
 	if (action == REMOVE_SYS)
-		return (destroy_system(system));
+	{
+		flag = destroy_system(system);
+		system = NULL;
+		return (flag);
+	}
 	if (action == ADD_ELEM || action == ADD_UNIQUE)
 		return (element_creating(system, data, data_type, action));
 	if (action == DEL_ELEM)
@@ -262,7 +275,7 @@ int system_destroy()
 
 int add_element(void *data, int data_type, int uniqueness)
 {
-	if (!data || data_type == 0)
+	if (!data || data_type == 0 || (uniqueness != ADD_UNIQUE && uniqueness != ADD_ELEM))
 		return (FAIL);
 	return (record_maintaining(data, data_type, uniqueness, NULL, NULL, NULL));
 }

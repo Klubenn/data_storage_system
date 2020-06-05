@@ -1,8 +1,7 @@
-#ifndef AERODISK_SYS_MANAGEMENT_H
-#define AERODISK_SYS_MANAGEMENT_H
+#ifndef SYS_MANAGEMENT_H
+#define SYS_MANAGEMENT_H
 
-#include <stdio.h>
-# include <stdlib.h>
+#include <stdlib.h>
 
 #define FAIL		1
 #define SUCCESS		0
@@ -44,4 +43,4 @@ int system_destroy();
 int add_element(void *data, int data_type, int uniqueness);
 int delete_element(void *data, int data_type);
 void iterate_elements(int data_type, void (*ext_iter_func)(void *));
-#endif //AERODISK_SYS_MANAGEMENT_H
+#endif
