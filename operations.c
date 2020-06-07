@@ -1,6 +1,7 @@
-#include "sys_management.h"
+#include "storage_internal.h"
 
-static t_elem *new_element(void *data, int type)
+
+static t_elem *new_element(void *data, int type, t_elem *prev)
 {
 	t_elem *new_elem;
 
@@ -9,11 +10,11 @@ static t_elem *new_element(void *data, int type)
 		return (NULL);
 	new_elem->type = type;
 	new_elem->data = data;
-	new_elem->next = NULL;
+	new_elem->prev = prev;
 	return (new_elem);
 }
 
-static t_type *new_type(int data_type)
+static t_type *new_type(int data_type, t_type *prev)
 {
 	t_type *type;
 
@@ -21,24 +22,8 @@ static t_type *new_type(int data_type)
 	if (!type)
 		return (NULL);
 	type->elem_type = data_type;
+	type->prev = prev;
 	return (type);
-}
-
-static t_system *create_system(t_system *system, int (*ext_delete_func)(int, void *),
-						 int (*ext_uniq_func)(int, void *, void *))
-{
-	t_system *new_system;
-
-	if (!system)
-	{
-		new_system = (t_system *)calloc(1, sizeof(t_system));
-		if (!new_system)
-			return (NULL);
-		new_system->ext_delete_func = ext_delete_func;
-		new_system->ext_uniq_func = ext_uniq_func;
-		return (new_system);
-	}
-	return (NULL);
 }
 
 static int destroy_system(t_system *system)
@@ -68,42 +53,40 @@ static int destroy_system(t_system *system)
 		free(type);
 		type = type_tmp;
 	}
-	free(system);
-	system = NULL;
 	return (flag);
 }
 
-static int put_element(t_system *system, t_type *type, void *data, int data_type, int uniquness)
+static int put_element(t_system *system, t_type *type, void *data, int uniqueness)
 {
 	t_elem *elem;
 
 	if (!type->first_elem)
 	{
-		type->first_elem = new_element(data, data_type);
+		type->first_elem = new_element(data, type->elem_type, NULL);
 		if (!type->first_elem)
 			return (FAIL);
 		type->last_elem = type->first_elem;
 		return (SUCCESS);
 	}
-	if (uniquness == ADD_ELEM)
+	if (uniqueness == ADD_ELEM)
 	{
-		type->last_elem->next = new_element(data, data_type);
+		type->last_elem->next = new_element(data, type->elem_type, type->last_elem);
 		if (!type->last_elem->next)
 			return (FAIL);
 		type->last_elem = type->last_elem->next;
 		return (SUCCESS);
 	}
-	elem = type->first_elem;
+	elem = type->first_elem;// if (uniqueness == ADD_UNIQUE)
 	while (elem)
 	{
 		if (!system->ext_uniq_func(elem->type, elem->data, data))
 			return (FAIL);
 		if (!elem->next)
 		{
-			elem->next = new_element(data, data_type);
+			elem->next = new_element(data, type->elem_type, elem);
 			if (!elem->next)
 				return (FAIL);
-			type->last_elem = elem;
+			type->last_elem = elem->next;
 			return (SUCCESS);
 		}
 		elem = elem->next;
@@ -119,7 +102,7 @@ static int element_creating(t_system *system, void *data, int data_type, int uni
 		return (FAIL);
 	if (!system->first_type)
 	{
-		system->first_type = new_type(data_type);
+		system->first_type = new_type(data_type, NULL);
 		if (!system->first_type)
 			return (FAIL);
 	}
@@ -127,89 +110,110 @@ static int element_creating(t_system *system, void *data, int data_type, int uni
 	while (type)
 	{
 		if (type->elem_type == data_type)
-			return (put_element(system, type, data, data_type, uniqueness));
+			return (put_element(system, type, data, uniqueness));
 		if (!type->next)
 		{
-			type->next = new_type(data_type);
+			type->next = new_type(data_type, type);
 			if (!type->next)
 				return (FAIL);
-			return (put_element(system, type->next, data, data_type, uniqueness));
+			return (put_element(system, type->next, data, uniqueness));
 		}
 		type = type->next;
 	}
 	return (FAIL); //redundant, because function will return inside the loop
 }
 
-static int element_deleting(t_system *system, void *data, int data_type)
+static void type_deleting(t_system *system, t_type *type)
+{
+	if (type->next)
+	{
+		if (type->prev)
+		{
+			type->prev->next = type->next;
+			type->next->prev = type->prev;
+		}
+		else
+		{
+			system->first_type = type->next;
+			type->next->prev = NULL;
+		}
+	}
+	else
+	{
+		if (type->prev)
+			type->prev->next = NULL;
+		else
+			system->first_type = NULL;
+	}
+	free(type);
+}
+
+static int element_deleting_delete(t_system *system, t_type *type, t_elem *elem)
+{
+	int 	result;
+
+	result = system->ext_delete_func(elem->type, elem->data);
+	if (elem->next)
+	{
+		if (elem->prev)
+		{
+			elem->prev->next = elem->next;
+			elem->next->prev = elem->prev;
+		}
+		else
+		{
+			type->first_elem = elem->next;
+			elem->next->prev = NULL;
+		}
+	}
+	else if (elem->prev)
+	{
+		elem->prev->next = NULL;
+		type->last_elem = elem->prev;
+	}
+	else
+		type_deleting(system, type);
+	free(elem);
+
+	return (result);
+}
+
+static int element_deleting_find(t_system *system, void *data, int data_type)
 {
 	t_type *type;
-	t_type *type_prev;
 	t_elem *elem;
-	t_elem *elem_prev;
-	int 	flag;
+	t_elem *elem_tmp;
+	int 	result;
+	int		flag;
 
-	flag = FAIL;
-	if (!system || !system->first_type)
-		return (FAIL);
+	result = SUCCESS;
+	flag = 0;
 	type = system->first_type;
-	type_prev = NULL;
 	while (type)
 	{
 		if (type->elem_type == data_type)
 		{
 			elem = type->first_elem;
-			elem_prev = NULL;
 			while (elem)
 			{
+				elem_tmp = elem->next;
 				if (elem->data == data)
 				{
-					system->ext_delete_func(elem->type, elem->data);
-					flag = SUCCESS;
-					if (elem->next)
-					{
-						if (elem_prev)
-							elem_prev->next = elem->next;
-						else
-							type->first_elem = elem->next;
-						elem_prev = elem;
-						elem = elem->next;
-						free(elem_prev);
-						elem_prev = NULL;
-						continue;
-					}
-					else
-					{
-						if (elem_prev)
-						{
-							elem_prev->next = NULL;
-							type->last_elem = elem_prev;
-						}
-						else
-						{
-							if (type_prev)
-								type_prev->next = type->next;
-							else
-								system->first_type = type->next;
-							free(type);
-							type = NULL;
-						}
-						free(elem);
-						elem = NULL;
-						break;
-					}
+					flag++;
+					result = (element_deleting_delete(system, type, elem) ? FAIL : result);
 				}
-				elem_prev = elem;
-				elem = elem->next;
+				elem = elem_tmp;
 			}
 			break;
 		}
-		type_prev = type;
 		type = type->next;
 	}
-	return (flag);
+	if (flag)
+		return (result);
+	return (FAIL);
 }
 
-static void elements_processing(t_system *system, int data_type, void (*ext_iter_func)(void *))
+static void elements_iterating(t_system *system, int data_type, void (*ext_iter_func)(void *))
 {
 	t_type *type;
 	t_elem *elem;
@@ -233,62 +237,79 @@ static void elements_processing(t_system *system, int data_type, void (*ext_iter
 	}
 }
 
-static int record_maintaining(void *data, int data_type, int action,
-		int (*ext_delete_func)(int, void *), int (*ext_uniq_func)(int, void *, void *),
-		void (*ext_iter_func)(void *))
+static t_system *system_storage(int action)
 {
 	static t_system *system = NULL;
-	int 	flag;
 
-	if (action == INIT_SYS)
-	{
-		system = create_system(system, ext_delete_func, ext_uniq_func);
-		if (!system)
-			return (FAIL);
-		return (SUCCESS);
-	}
 	if (action == REMOVE_SYS)
 	{
-		flag = destroy_system(system);
+		free(system);
 		system = NULL;
-		return (flag);
 	}
-	if (action == ADD_ELEM || action == ADD_UNIQUE)
-		return (element_creating(system, data, data_type, action));
-	if (action == DEL_ELEM)
-		return (element_deleting(system, data, data_type));
-	if (action == ITER_ELEM)
-		elements_processing(system, data_type, ext_iter_func);
-	return (FAIL);
+	else if (action == INIT_SYS)
+	{
+		if (system)
+			return (NULL);
+		system = (t_system *)calloc(1, sizeof(t_system));
+		return (system);
+	}
+	return (system);
 }
 
-int system_init(int (*ext_delete_func)(int, void *),
-				int (*ext_uniq_func)(int, void *, void *))
+int system_init(int (*ext_delete_func)(int, void *), int (*ext_uniq_func)(int, void *, void *))
 {
-	return (record_maintaining(NULL, 0, INIT_SYS, ext_delete_func, ext_uniq_func, NULL));
+	t_system *system;
+
+	if (!(ext_delete_func) || !(ext_uniq_func))
+		return (FAIL);
+	if (!(system = system_storage(INIT_SYS)))
+		return (FAIL);
+	system->ext_delete_func = ext_delete_func;
+	system->ext_uniq_func = ext_uniq_func;
+	return (SUCCESS);
 }
 
 int system_destroy()
 {
-	return (record_maintaining(NULL, 0, REMOVE_SYS, NULL, NULL, NULL));
+	t_system *system;
+	int 	result;
+
+	if (!(system = system_storage(GET_DATA)))
+		return (FAIL);
+	result = destroy_system(system);
+	system_storage(REMOVE_SYS);
+	return (result);
 }
 
 int add_element(void *data, int data_type, int uniqueness)
 {
+	t_system *system;
+
 	if (!data || data_type == 0 || (uniqueness != ADD_UNIQUE && uniqueness != ADD_ELEM))
 		return (FAIL);
-	return (record_maintaining(data, data_type, uniqueness, NULL, NULL, NULL));
+	if (!(system = system_storage(GET_DATA)))
+		return (FAIL);
+	return (element_creating(system, data, data_type, uniqueness));
 }
 
 int delete_element(void *data, int data_type)
 {
+	t_system *system;
+
 	if (!data || !data_type)
 		return (FAIL);
-	return (record_maintaining(data, data_type, DEL_ELEM, NULL, NULL, NULL));
+	if (!(system = system_storage(GET_DATA)))
+		return (FAIL);
+	return (element_deleting_find(system, data, data_type));
 }
 
 void iterate_elements(int data_type, void (*ext_iter_func)(void *))
 {
-	if (data_type != 0)
-		record_maintaining(NULL, data_type, ITER_ELEM, NULL, NULL, ext_iter_func);
+	t_system *system;
+
+	if (!data_type || !(ext_iter_func))
+		return;
+	if (!(system = system_storage(GET_DATA)))
+		return;
+	elements_iterating(system, data_type, ext_iter_func);
 }
