@@ -26,6 +26,19 @@ static t_type *new_type(int data_type, t_type *prev)
 	return (type);
 }
 
+static void remove_duplicates(t_elem *elem)
+{
+	t_elem *next_elems;
+
+	next_elems = elem->next;
+	while (next_elems)
+	{
+		if (elem->data == next_elems->data)
+			next_elems->data = NULL;
+		next_elems = next_elems->next;
+	}
+}
+
 static int destroy_system(t_system *system)
 {
 	t_type	*type;
@@ -43,8 +56,12 @@ static int destroy_system(t_system *system)
 		elem = type->first_elem;
 		while(elem)
 		{
-			if (system->ext_delete_func(elem->type, elem->data) == FAIL)
-				flag = FAIL;
+			if (elem->data)
+			{
+				remove_duplicates(elem);
+				if (system->ext_delete_func(elem->type, elem->data) == FAIL)
+					flag = FAIL;
+			}
 			elem_tmp = elem->next;
 			free(elem);
 			elem = elem_tmp;
@@ -148,11 +165,13 @@ static void type_deleting(t_system *system, t_type *type)
 	free(type);
 }
 
-static int element_deleting_delete(t_system *system, t_type *type, t_elem *elem)
+static int element_deleting_delete(t_system *system, t_type *type, t_elem *elem, int flag)
 {
 	int 	result;
 
-	result = system->ext_delete_func(elem->type, elem->data);
+	result = SUCCESS;
+	if (!flag)
+		result = system->ext_delete_func(elem->type, elem->data);
 	if (elem->next)
 	{
 		if (elem->prev)
@@ -199,8 +218,8 @@ static int element_deleting_find(t_system *system, void *data, int data_type)
 				elem_tmp = elem->next;
 				if (elem->data == data)
 				{
+					result = (element_deleting_delete(system, type, elem, flag) ? FAIL : result);
 					flag++;
-					result = (element_deleting_delete(system, type, elem) ? FAIL : result);
 				}
 				elem = elem_tmp;
 			}

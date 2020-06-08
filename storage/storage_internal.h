@@ -13,8 +13,6 @@ enum
 	INIT_SYS,
 	REMOVE_SYS,
 	GET_DATA,
-	DEL_ELEM,
-	ITER_ELEM,
 };
 
 typedef struct		s_elem
