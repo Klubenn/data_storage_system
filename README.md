@@ -1,4 +1,10 @@
 # Data storage system
+To compile the library run **make**
+
+Include **storage.h** in your file to use the library
+
+Below are descriptions of available functions
+
 For system initialization the function is passed,
 which destroys elements with respect to their type. The function's prototype
 is supposed to be like "int ext_delete_func(int type, void *struc)" and
