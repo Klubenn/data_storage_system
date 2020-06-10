@@ -59,7 +59,7 @@ static int destroy_system(t_system *system)
 			if (elem->data)
 			{
 				remove_duplicates(elem);
-				if (system->ext_delete_func(elem->type, elem->data) == FAIL)
+				if (system->ext_delete_func[elem->type](elem->data) == FAIL)
 					flag = FAIL;
 			}
 			elem_tmp = elem->next;
@@ -96,7 +96,7 @@ static int put_element(t_system *system, t_type *type, void *data, int uniquenes
 	elem = type->first_elem;// if (uniqueness == ADD_UNIQUE)
 	while (elem)
 	{
-		if (!system->ext_uniq_func(elem->type, elem->data, data))
+		if (!system->ext_uniq_func[elem->type](elem->data, data))
 			return (FAIL);
 		if (!elem->next)
 		{
@@ -171,7 +171,7 @@ static int element_deleting_delete(t_system *system, t_type *type, t_elem *elem,
 
 	result = SUCCESS;
 	if (!flag)
-		result = system->ext_delete_func(elem->type, elem->data);
+		result = system->ext_delete_func[elem->type](elem->data);
 	if (elem->next)
 	{
 		if (elem->prev)
@@ -232,7 +232,7 @@ static int element_deleting_find(t_system *system, void *data, int data_type)
 	return (FAIL);
 }
 
-static void elements_iterating(t_system *system, int data_type, void (*ext_iter_func)(void *))
+static void elements_iterating(t_system *system, int data_type, void (**ext_iter_func)(void *))
 {
 	t_type *type;
 	t_elem *elem;
@@ -247,7 +247,7 @@ static void elements_iterating(t_system *system, int data_type, void (*ext_iter_
 			elem = type->first_elem;
 			while (elem)
 			{
-				ext_iter_func(elem->data);
+				ext_iter_func[elem->type](elem->data);
 				elem = elem->next;
 			}
 			break;
@@ -275,7 +275,7 @@ static t_system *system_storage(int action)
 	return (system);
 }
 
-int system_init(int (*ext_delete_func)(int, void *), int (*ext_uniq_func)(int, void *, void *))
+int system_init(int (**ext_delete_func)(void *), int (**ext_uniq_func)(void *, void *))
 {
 	t_system *system;
 
@@ -322,7 +322,7 @@ int delete_element(void *data, int data_type)
 	return (element_deleting_find(system, data, data_type));
 }
 
-void iterate_elements(int data_type, void (*ext_iter_func)(void *))
+void iterate_elements(int data_type, void (**ext_iter_func)(void *))
 {
 	t_system *system;
 

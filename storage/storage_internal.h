@@ -35,8 +35,8 @@ typedef struct		s_type
 typedef struct		s_system
 {
 	t_type			*first_type;
-	int 			(*ext_delete_func)(int, void *);
-	int 			(*ext_uniq_func)(int, void *, void *);
+	int 			(**ext_delete_func)(void *);
+	int 			(**ext_uniq_func)(void *, void *);
 }					t_system;
 
 #endif
