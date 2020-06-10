@@ -1,4 +1,6 @@
-NAME = libstorage.a
+PROG = test_storage
+
+LIB = libstorage.a
 
 DIR = ./storage/
 
@@ -12,20 +14,23 @@ OBJECT = $(SOURCE:%.c=%.o)
 
 FLAGS = -Wall -Wextra -Werror
 
-all: $(NAME)
+all: $(LIB) $(PROG)
 
-$(NAME): $(SOURCE) $(OBJECT)
-	ar rc $(NAME) $(OBJECT)
-	ranlib $(NAME)
+$(LIB): $(SOURCE) $(OBJECT)
+	ar rc $(LIB) $(OBJECT)
+	ranlib $(LIB)
 
 %.o: %.c $(INCLUDES)
 	gcc $(FLAGS) -I$(DIR) -o $@ -c $<
+
+$(PROG): main_test.c storage.h $(LIB)
+	gcc $(FLAGS) main_test.c -L. -lstorage -o $(PROG)
 
 clean:
 	rm -f $(OBJECT)
 
 fclean: clean
-	rm -f $(NAME)
+	rm -f $(PROG) $(LIB)
 
 re: fclean all
 

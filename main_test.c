@@ -1,7 +1,7 @@
-#include <fcntl.h>
 #include "storage.h"
-#include "libft.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 void iter_string(void *data)
 {
@@ -9,9 +9,21 @@ void iter_string(void *data)
 
 	s = (char *)data;
 	if (*s >= 'a' && *s<= 'z')
-		*s -= 32;
+	{
+		while (*s)
+		{
+			*s -= 32;
+			s++;
+		}
+	}
 	else if (*s >= 'A' && *s <= 'Z')
-		*s += 32;
+	{
+		while (*s)
+		{
+			*s += 32;
+			s++;
+		}
+	}
 	else
 		*s = '#';
 }
@@ -80,7 +92,7 @@ void (*ext_iter_func[])(void *) = {NULL, iter_string, iter_int};
 int (*ext_delete_func[])(void *) = {NULL, delete_string, delete_int};
 int (*ext_uniq_func[])(void *, void *) = {NULL, unique_string, unique_int};
 
-int main(int ac, char **av)
+int main(void)
 {
 	int *p_int[10];
 	char *p_str[10];
@@ -128,12 +140,13 @@ int main(int ac, char **av)
 
 	printf("\nTest 3: Adding duplicate int and string elements with ADD_UNIQUE option:\n");
 	printf("[expected]-[result]\n");
-	int a = 7777;
-	char *b = "ccccccccc";
-	status = add_element(&a, 2, ADD_UNIQUE);
-	printf("[1]-[%d] - duplicate int\n", status);
+	int *a = (int *)malloc(sizeof(int));
+	*a = 7777;
+	char *b = strdup("ccccccccc");
+	status = add_element(a, 2, ADD_UNIQUE);
+	printf("[1]-[%d] - duplicate int - %d\n", status, *a);
 	status = add_element(b, 1, ADD_UNIQUE);
-	printf("[1]-[%d] - duplicate string\n", status);
+	printf("[1]-[%d] - duplicate string - %s\n", status, b);
 
 	printf("\nTest 4: Iterating and changing elements:\n");
 	printf("Before changes\n%5s | %s\n", "int", "string");
@@ -145,20 +158,21 @@ int main(int ac, char **av)
 	for (int i = 0; i < 10; i++)
 		printf("%+05d | %s\n", *p_int[i], p_str[i]);
 
-	printf("\nTest 5: Adding unchanged int and string elements with ADD_UNIQUE option:\n");
+	printf("\nTest 5: Adding int and string elements with ADD_UNIQUE option after changing initial data:\n");
 	printf("[expected]-[result]\n");
-	status = add_element(&a, 2, ADD_UNIQUE);
-	printf("[0]-[%d] - duplicate int\n", status);
+	status = add_element(a, 2, ADD_UNIQUE);
+	printf("[0]-[%d] - non-duplicate int - %d\n", status, *a);
 	status = add_element(b, 1, ADD_UNIQUE);
-	printf("[0]-[%d] - duplicate string\n", status);
+	printf("[0]-[%d] - non-duplicate string - %s\n", status, b);
 
 	printf("\nTest 6: Removing one element. Expected undefined symbols for 4th element:\n");
 	delete_element(p_int[4], 2);
 	delete_element(p_str[4], 1);
-	for (int i = 0; i < 11; i++)
-		printf("%d: %+011d | %s\n", i, *p_int[i], p_str[i]);
+	for (int i = 0; i < 10; i++)
+		printf("%d: %+05d | %s\n", i, *p_int[i], p_str[i]);
+	printf("%d: %+05d | %s\n", 10, *a, b);
 	status = system_destroy();
-	printf("%d - deinitialization\n", status);
+	printf("\n%d - deinitialization\n", status);
 	return (0);
 
 
