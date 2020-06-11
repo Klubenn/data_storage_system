@@ -1,5 +1,6 @@
 # Data storage system
-To compile the library run **make**
+To compile the library and checker run **make**. Checker is called **test_storage**
+and shows implementation of common functions from the library.
 
 Include **storage.h** in your file to use the library
 
